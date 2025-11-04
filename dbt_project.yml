@@ -3,6 +3,8 @@ name: 'jaffle_shop'
 config-version: 2
 version: '0.1'
 
+dbt-cloud:
+    project-id: "350516"
 profile: 'jaffle_shop'
 
 model-paths: ["models"]
