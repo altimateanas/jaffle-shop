@@ -4,7 +4,7 @@ config-version: 2
 version: '0.1'
 
 dbt-cloud:
-    project-id: "350516"
+    project-id: "466993"
 profile: 'jaffle_shop'
 
 
