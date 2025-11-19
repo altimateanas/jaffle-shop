@@ -1,12 +1,10 @@
-name: 'jaffle_shop'
+name: 'jaffle_shop_test'
 
 config-version: 2
 version: '0.1'
 
 dbt-cloud:
     project-id: "466993"
-profile: 'jaffle_shop'
-
 
 model-paths: ["models"]
 seed-paths: ["seeds"]
