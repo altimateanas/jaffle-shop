@@ -1,0 +1,5 @@
+packages:
+  - git: https://github.com/AltimateAI/altimate-dbt-snowflake-query-tags.git
+    name: altimate_snowflake_query_tags
+    revision: 3251a4de5c6fc118f109808c013148fb513bc49a
+sha1_hash: 45648ac3943d1fc8eec56d62bbcf47fee14850fd
