@@ -5,6 +5,13 @@ version: '0.1'
 
 dbt-cloud:
     project-id: "466993"
+profile: 'jaffle_shop_test'
+dispatch:
+  - macro_namespace: dbt
+    search_order:
+      - jaffle_shop_test
+      - altimate_snowflake_query_tags
+      - dbt
 
 model-paths: ["models"]
 seed-paths: ["seeds"]
