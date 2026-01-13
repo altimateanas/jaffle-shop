@@ -5,7 +5,7 @@ version: '0.1'
 
 dbt-cloud:
     project-id: "466993"
-profile: 'jaffle_shop_test'
+profile: 'jaffle_shop_cisco'
 dispatch:
   - macro_namespace: dbt
     search_order:
@@ -29,7 +29,10 @@ require-dbt-version: [">=1.0.0", "<2.0.0"]
 
 
 models:
-  jaffle_shop:
-      materialized: table
+  jaffle_shop_test:
+      +materialized: table
       staging:
-        materialized: view
+        +materialized: view
+      cisco:
+        +schema: cisco
+        +database: cisco_demo

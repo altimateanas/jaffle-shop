@@ -1,0 +1,64 @@
+{{ config(
+    query_tag='cisco_demo'
+) }}
+
+select
+    (case
+        when ("t2"."__measure__3" = 1) then "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_6"
+        when ("t2"."__measure__4" = 1) then "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_6"
+        when ("t2"."__measure__5" = 1) then "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_5"
+        when ("t2"."__measure__6" = 1) then "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_4"
+        when ("t2"."__measure__7" = 1) then "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_3"
+        when ("t2"."__measure__8" = 1) then "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_2"
+        else (case when ("ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" = 'EMEA_GEO') then 'EMEA' else "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" end)
+    end) as "Calculation_2534400743366078474",
+    sum((case when ("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) then "ONEVIEW_IACV_TBL"."STANDARD_RR_PLAN_DENOMINATOR" else 0 end)) as "TEMP($Renewed plan - Selected quarter (copy)_2725240741630853135)(3481580241)(0)",
+    sum((case when ("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) then "ONEVIEW_IACV_TBL"."STANDARD_RR_PLAN_NUMERATOR" else 0 end)) as "TEMP($Renewed plan - Selected quarter (copy)_2725240741630853135)(881979561)(0)",
+    sum((case when ((("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER_KEY" + 4) = 121) and ("ONEVIEW_IACV_TBL"."RENEWED_GOALING_PERIOD_SEQ_NUM" = 0) and ('CurrentWeek' = 'CurrentWeek')) then "ONEVIEW_IACV_TBL"."IQRR_NUMERATOR" else 0 end)) as "TEMP(Calculation_1444811066178293770)(2998546359)(0)",
+    sum((case when ((("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER_KEY" + 4) = 121) and ("ONEVIEW_IACV_TBL"."RENEWED_GOALING_PERIOD_SEQ_NUM" = 0) and ('CurrentWeek' = 'CurrentWeek')) then "ONEVIEW_IACV_TBL"."IQRR_DENOMINATOR" else 0 end)) as "TEMP(Calculation_1444811066178293770)(4071042573)(0)",
+    sum((case when (("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) and ("ONEVIEW_IACV_TBL"."RENEWED_GOALING_PERIOD_SEQ_NUM" = 1) and ('CurrentWeek' = 'CurrentWeek')) then "ONEVIEW_IACV_TBL"."IQRR_DENOMINATOR" else 0 end)) as "TEMP(Calculation_2200571407885250562)(4073797536)(0)",
+    sum((case when (("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) and ('CurrentWeek' = 'CurrentWeek') and ("ONEVIEW_IACV_TBL"."RENEWED_GOALING_PERIOD_SEQ_NUM" = 1)) then "ONEVIEW_IACV_TBL"."IQRR_NUMERATOR" else 0 end)) as "TEMP(Calculation_2200571407885250562)(4282036400)(0)",
+    sum((case when (("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) and ('CurrentWeek' = 'CurrentWeek') and ("ONEVIEW_IACV_TBL"."RENEWED_GOALING_PERIOD_SEQ_NUM" = 0)) then "ONEVIEW_IACV_TBL"."IQRR_NUMERATOR" else 0 end)) as "TEMP(Calculation_2725240741616009228)(2622581296)(0)",
+    sum((case when (("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) and ("ONEVIEW_IACV_TBL"."RENEWED_GOALING_PERIOD_SEQ_NUM" = 0) and ('CurrentWeek' = 'CurrentWeek')) then "ONEVIEW_IACV_TBL"."IQRR_DENOMINATOR" else 0 end)) as "TEMP(Calculation_2725240741616009228)(3517313516)(0)",
+    sum((case when (("ONEVIEW_IACV_TBL"."EXPIRATION_QUARTER_KEY" = 121) and ("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER_KEY" <= 121)) then (case when (("ONEVIEW_IACV_TBL"."SOURCE" = 'sfdc_Pipeline') and ("ONEVIEW_IACV_TBL"."FORECAST_STATUS_C" = 'Commit')) then (case when ("ONEVIEW_IACV_TBL"."EXPECTED_ANNUAL_C" > "ONEVIEW_IACV_TBL"."PRIOR_ATR_000_S_C") then "ONEVIEW_IACV_TBL"."PRIOR_ATR_000_S_C" else "ONEVIEW_IACV_TBL"."EXPECTED_ANNUAL_C" end) else 0 end) else 0 end)) as "TEMP(Calculation_2725240741616009228)(4216764455)(0)",
+    sum((case when (("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) and ("ONEVIEW_IACV_TBL"."BOOK_QUARTER" <= 20263)) then (case when (("ONEVIEW_IACV_TBL"."SOURCE" = 'Quarterline_Pipeline') and ("ONEVIEW_IACV_TBL"."FORECAST_STATUS_C" = 'Upside') and (not contains("ONEVIEW_IACV_TBL"."STAGE_NAME",'6')) and ('CurrentWeek' = 'CurrentWeek')) then (case when ("ONEVIEW_IACV_TBL"."QUARTERLINE_EXPECTED_ATR" > "ONEVIEW_IACV_TBL"."QUARTERLINE_ATR") then "ONEVIEW_IACV_TBL"."QUARTERLINE_ATR" else "ONEVIEW_IACV_TBL"."QUARTERLINE_EXPECTED_ATR" end) else 0 end) else 0 end)) as "sum:Quarterline Upside - selected qtr - CW (copy)_527202659443220483:ok",
+    sum((case when (("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) and ("ONEVIEW_IACV_TBL"."BOOK_QUARTER" <= 20263)) then (case when (("ONEVIEW_IACV_TBL"."SOURCE" = 'Quarterline_Pipeline') and ("ONEVIEW_IACV_TBL"."FORECAST_STATUS_C" = 'Commit') and (not contains("ONEVIEW_IACV_TBL"."STAGE_NAME",'6')) and ('CurrentWeek' = 'CurrentWeek')) then (case when ("ONEVIEW_IACV_TBL"."QUARTERLINE_EXPECTED_ATR" > "ONEVIEW_IACV_TBL"."QUARTERLINE_ATR") then "ONEVIEW_IACV_TBL"."QUARTERLINE_ATR" else "ONEVIEW_IACV_TBL"."QUARTERLINE_EXPECTED_ATR" end) else 0 end) else 0 end)) as "sum:Quarterline commit - selected qtr - CW (copy)_527202659443134466:ok",
+    sum((case when (("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) and ("ONEVIEW_IACV_TBL"."RENEWED_GOALING_PERIOD_SEQ_NUM" = 0) and ('CurrentWeek' = 'CurrentWeek')) then "ONEVIEW_IACV_TBL"."IQRR_DENOMINATOR" else 0 end)) as "sum:Selected Standard RR Expiration Denominator (copy)_527202659443056641:ok",
+    sum((case when (("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) and ('CurrentWeek' = 'CurrentWeek') and ("ONEVIEW_IACV_TBL"."RENEWED_GOALING_PERIOD_SEQ_NUM" = 0)) then "ONEVIEW_IACV_TBL"."IQRR_NUMERATOR" else 0 end)) as "sum:Selected Standard RR Expiration Numerator (copy)_527202659442937856:ok",
+    sum((case when (("ONEVIEW_IACV_TBL"."EXPIRATION_QUARTER_KEY" = 121) and ("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER_KEY" <= 121)) then (case when (("ONEVIEW_IACV_TBL"."SOURCE" = 'sfdc_Pipeline') and ("ONEVIEW_IACV_TBL"."FORECAST_STATUS_C" in ('Most Likely', 'Upside'))) then (case when ("ONEVIEW_IACV_TBL"."EXPECTED_ANNUAL_C" > "ONEVIEW_IACV_TBL"."PRIOR_ATR_000_S_C") then "ONEVIEW_IACV_TBL"."PRIOR_ATR_000_S_C" else "ONEVIEW_IACV_TBL"."EXPECTED_ANNUAL_C" end) else 0 end) else 0 end)) as "sum:Std IQRR Commit capped - selected qtr (copy)_1230890126591168527:ok"
+from {{ source('cx_db_cx_grit_br', 'oneview_iacv_tbl') }} "ONEVIEW_IACV_TBL"
+inner join {{ source('cx_db_cx_grit_br', 'tableau_6699_2_group') }} "Group_1"
+    on ("ONEVIEW_IACV_TBL"."BE_CX_CUSTOM_PORTFOLIO" is not distinct from "Group_1"."X_BE_CX_CUSTOM_PORTFOLIO")
+left join (
+    select
+        "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_2" as "none:SAV_SALES_LEVEL_2:nk",
+        1 as "$temp10_output"
+    from {{ source('cx_db_cx_grit_br', 'oneview_iacv_tbl') }} "ONEVIEW_IACV_TBL"
+    where (((case when ("ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" = 'EMEA_GEO') then 'EMEA' else "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" end) in ('APJC', 'Americas', 'EMEA')) and ("ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_2" in ('APJ_SP', 'GREATER_CHINA', 'JAPAN__', 'ROK_AREA')))
+    group by 1
+) "t0" on ("ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_2" = "t0"."none:SAV_SALES_LEVEL_2:nk")
+cross join (
+    select
+        count(distinct "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_6") as "__measure__3",
+        count(distinct "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_5") as "__measure__4",
+        count(distinct "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_4") as "__measure__5",
+        count(distinct "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_3") as "__measure__6",
+        count(distinct "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_2") as "__measure__7",
+        count(distinct (case when ("ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" = 'EMEA_GEO') then 'EMEA' else "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" end)) as "__measure__8"
+    from {{ source('cx_db_cx_grit_br', 'oneview_iacv_tbl') }} "ONEVIEW_IACV_TBL"
+    inner join {{ source('cx_db_cx_grit_br', 'tableau_6699_2_group') }} "Group_2"
+        on ("ONEVIEW_IACV_TBL"."BE_CX_CUSTOM_PORTFOLIO" is not distinct from "Group_2"."X_BE_CX_CUSTOM_PORTFOLIO")
+    left join (
+        select
+            "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_2" as "none:SAV_SALES_LEVEL_2:nk",
+            1 as "$temp13_output"
+        from {{ source('cx_db_cx_grit_br', 'oneview_iacv_tbl') }} "ONEVIEW_IACV_TBL"
+        where (((case when ("ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" = 'EMEA_GEO') then 'EMEA' else "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" end) in ('APJC', 'Americas', 'EMEA')) and ("ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_2" in ('APJ_SP', 'GREATER_CHINA', 'JAPAN__', 'ROK_AREA')))
+        group by 1
+    ) "t1" on ("ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_2" = "t1"."none:SAV_SALES_LEVEL_2:nk")
+    where ((((((case "ONEVIEW_IACV_TBL"."PMG_IN_SCOPE" when 'SW-N' then 'N' when 'SVS' then 'Y' when 'SW-Y' then 'Y' else "ONEVIEW_IACV_TBL"."PMG_IN_SCOPE" end) = 'Y') and (case when ("ONEVIEW_IACV_TBL"."SOURCE" in ('OneView_iacv_metrics', 'OneView_snapshot_atr', 'sfdc_pipeline')) then false else true end)) and (((case when ("ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" = 'EMEA_GEO') then 'EMEA' else "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" end) in ('APJC', 'Americas', 'EMEA')) and ((case when ("ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" = 'EMEA_GEO') then 'EMEA' else "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" end) = 'APJC'))) and ("Group_2"."X_BE_CX_CUSTOM_PORTFOLIO_GROUP_1" = 'CAI')) and (('wwang8' = "ONEVIEW_IACV_TBL"."RM_CEC") or ('wwang8' = "ONEVIEW_IACV_TBL"."RM2_CEC") or ('wwang8' = "ONEVIEW_IACV_TBL"."RM3_CEC") or ('wwang8' = "ONEVIEW_IACV_TBL"."RS_CEC") or ('wwang8' = "ONEVIEW_IACV_TBL"."RS2_CEC") or (not ("t1"."$temp13_output" is null))))
+    having (count(1) > 0)
+) "t2"
+where (((((case when (("ONEVIEW_IACV_TBL"."BE_CX_CUSTOM_PORTFOLIO" in ('Support Services', 'Support Services and Success Track')) or ("ONEVIEW_IACV_TBL"."BE_CX_CUSTOM_PORTFOLIO" is null)) then false else true end) and ((case "ONEVIEW_IACV_TBL"."PMG_IN_SCOPE" when 'SW-N' then 'N' when 'SVS' then 'Y' when 'SW-Y' then 'Y' else "ONEVIEW_IACV_TBL"."PMG_IN_SCOPE" end) = 'Y') and (case when ("ONEVIEW_IACV_TBL"."SOURCE" in ('OneView_iacv_metrics', 'OneView_snapshot_atr', 'sfdc_pipeline')) then false else true end)) and (((case when ("ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" = 'EMEA_GEO') then 'EMEA' else "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" end) in ('APJC', 'Americas', 'EMEA')) and ((case when ("ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" = 'EMEA_GEO') then 'EMEA' else "ONEVIEW_IACV_TBL"."SAV_SALES_LEVEL_1" end) = 'APJC'))) and ("Group_1"."X_BE_CX_CUSTOM_PORTFOLIO_GROUP_1" = 'CAI')) and (('wwang8' = "ONEVIEW_IACV_TBL"."RM_CEC") or ('wwang8' = "ONEVIEW_IACV_TBL"."RM2_CEC") or ('wwang8' = "ONEVIEW_IACV_TBL"."RM3_CEC") or ('wwang8' = "ONEVIEW_IACV_TBL"."RS_CEC") or ('wwang8' = "ONEVIEW_IACV_TBL"."RS2_CEC") or (not ("t0"."$temp10_output" is null))))
+group by 1
+having ((((zeroifnull(sum((case when (("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) and ("ONEVIEW_IACV_TBL"."RENEWED_GOALING_PERIOD_SEQ_NUM" = 0) and ('CurrentWeek' = 'CurrentWeek')) then "ONEVIEW_IACV_TBL"."IQRR_DENOMINATOR" else 0 end))) + zeroifnull(sum((case when (("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) and ('CurrentWeek' = 'CurrentWeek') and ("ONEVIEW_IACV_TBL"."RENEWED_GOALING_PERIOD_SEQ_NUM" = 0)) then "ONEVIEW_IACV_TBL"."IQRR_NUMERATOR" else 0 end)))) + zeroifnull(sum((case when (("ONEVIEW_IACV_TBL"."EXPIRATION_QUARTER_KEY" = 121) and ("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER_KEY" <= 121)) then (case when (("ONEVIEW_IACV_TBL"."SOURCE" = 'sfdc_Pipeline') and ("ONEVIEW_IACV_TBL"."FORECAST_STATUS_C" = 'Commit')) then (case when ("ONEVIEW_IACV_TBL"."EXPECTED_ANNUAL_C" > "ONEVIEW_IACV_TBL"."PRIOR_ATR_000_S_C") then "ONEVIEW_IACV_TBL"."PRIOR_ATR_000_S_C" else "ONEVIEW_IACV_TBL"."EXPECTED_ANNUAL_C" end) else 0 end) else 0 end)))) + zeroifnull((sum((case when (("ONEVIEW_IACV_TBL"."EXPIRATION_QUARTER_KEY" = 121) and ("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER_KEY" <= 121)) then (case when (("ONEVIEW_IACV_TBL"."SOURCE" = 'sfdc_Pipeline') and ("ONEVIEW_IACV_TBL"."FORECAST_STATUS_C" in ('Most Likely', 'Upside'))) then (case when ("ONEVIEW_IACV_TBL"."EXPECTED_ANNUAL_C" > "ONEVIEW_IACV_TBL"."PRIOR_ATR_000_S_C") then "ONEVIEW_IACV_TBL"."PRIOR_ATR_000_S_C" else "ONEVIEW_IACV_TBL"."EXPECTED_ANNUAL_C" end) else 0 end) else 0 end)) + zeroifnull((case when sum((case when ("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) then "ONEVIEW_IACV_TBL"."STANDARD_RR_PLAN_DENOMINATOR" else 0 end)) <> 0 then sum((case when ("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) then "ONEVIEW_IACV_TBL"."STANDARD_RR_PLAN_NUMERATOR" else 0 end)) / sum((case when ("ONEVIEW_IACV_TBL"."GOALING_PERIOD_QUARTER" = 20263) then "ONEVIEW_IACV_TBL"."STANDARD_RR_PLAN_DENOMINATOR" else 0 end)) end))))) > 5000)

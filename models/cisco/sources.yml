@@ -1,0 +1,225 @@
+version: 2
+
+sources:
+  - name: edw_cafe_db_pv
+    description: "EDW CAFE database - Product and Services data"
+    database: cisco_demo
+    schema: edw_cafe_db_pv
+    tables:
+      - name: pv_n_service_quote_line_stream_hana
+        description: "Service quote line details from HANA system"
+        columns:
+          - name: service_quote_line_key
+            description: "Unique identifier for service quote line"
+          - name: ss_cd
+            description: "Service code (CCWR for this dataset)"
+          - name: ip_key
+            description: "Foreign key to installed product"
+          - name: prr_svc_cntrct_ln_tec_svcs_key
+            description: "Foreign key to service contract line"
+
+      - name: pv_installed_product
+        description: "Installed product information"
+        columns:
+          - name: ip_key
+            description: "Primary key for installed product"
+          - name: sk_instance_id_int
+            description: "Instance ID"
+
+      - name: pv_svc_cntrct_ln_tech_services
+        description: "Service contract line technical services"
+        columns:
+          - name: svc_cntrct_ln_tech_svcs_key
+            description: "Primary key for service contract line"
+          - name: sk_id_lint
+            description: "Contract line ID"
+
+  - name: salesit_db_salesit_sc3vis_stg
+    description: "Sales IT database - Sales compensation and revenue data"
+    database: cisco_demo
+    schema: salesit_db_salesit_sc3vis_stg
+    tables:
+      - name: node_gs_details_pvo
+        description: "Node goal setting details for sales compensation"
+        columns:
+          - name: employee_id
+            description: "Employee identifier"
+          - name: salesrep_number
+            description: "Sales representative number"
+          - name: territory_code
+            description: "Territory code"
+          - name: territory_type_code
+            description: "Type of territory"
+          - name: revenue_class_id
+            description: "Revenue classification"
+
+      - name: node_metric_rev_line_pvo
+        description: "Node metric revenue line details"
+        columns:
+          - name: so_number
+            description: "Sales order number"
+          - name: salesrep_number
+            description: "Sales representative number"
+          - name: territory_code
+            description: "Territory code"
+          - name: revenue_class_id
+            description: "Revenue classification"
+          - name: iacv_booking_usd_amount
+            description: "IACV booking amount in USD"
+
+  - name: edw_telmtry_br_db_br
+    description: "EDW Telemetry Business Rules database"
+    database: cisco_demo
+    schema: edw_telmtry_br_db_br
+    tables:
+      - name: mt_cp_telmtry_dnac
+        description: "DNAC telemetry collection metadata"
+        columns:
+          - name: memberid
+            description: "Unique member identifier"
+          - name: recordedat
+            description: "Record timestamp"
+
+      - name: mt_installed_prod_telmtry_dnac
+        description: "Installed product telemetry for DNAC"
+        columns:
+          - name: member_id
+            description: "Member identifier"
+          - name: snapshot_date
+            description: "Date of snapshot"
+
+      - name: n_installed_prod_telemetry
+        description: "Normalized installed product telemetry"
+        columns:
+          - name: telemetry_id
+            description: "Telemetry identifier"
+          - name: tel_record_type
+            description: "Type of telemetry record"
+          - name: threading_cd
+            description: "Threading code"
+          - name: rule_name
+            description: "Rule name (MDSN)"
+
+      - name: mt_cp_telmtry_thrdng_mngd_dev
+        description: "Managed device threading telemetry"
+        columns:
+          - name: primary_key
+            description: "Primary key"
+          - name: serial_number
+            description: "Device serial number"
+          - name: pid
+            description: "Product ID"
+
+      - name: mt_cp_telmtry_dnac_ncp
+        description: "DNAC NCP telemetry data"
+        columns:
+          - name: primarykey
+            description: "Primary key"
+          - name: dataqueryname
+            description: "Data query name"
+          - name: count
+            description: "Count metric"
+
+  - name: edw_telmtry_etl_db_ss
+    description: "EDW Telemetry ETL database - Staging schema"
+    database: cisco_demo
+    schema: edw_telmtry_etl_db_ss
+    tables:
+      - name: dnac_ncpdata
+        description: "DNAC NCP raw data"
+        columns:
+          - name: memberid
+            description: "Member identifier"
+          - name: dataqueryname
+            description: "Type of data query"
+          - name: dataattr1
+            description: "Data attribute 1"
+          - name: dataattr2
+            description: "Data attribute 2"
+          - name: dataattr3
+            description: "Data attribute 3"
+
+      - name: dnac_assurancecounts
+        description: "DNAC assurance counts"
+        columns:
+          - name: memberid
+            description: "Member identifier"
+          - name: count_name
+            description: "Name of the count metric"
+          - name: count
+            description: "Count value"
+
+      - name: dnac_base
+        description: "DNAC base calendar table"
+        columns:
+          - name: recordedat
+            description: "Record timestamp"
+
+      - name: dnac_clickeventapistat
+        description: "DNAC click event API statistics"
+        columns:
+          - name: memberid
+            description: "Member identifier"
+          - name: eventurl
+            description: "Event URL"
+          - name: eventaction
+            description: "Event action (click)"
+
+  - name: edw_ref_br_db_br
+    description: "EDW Reference Business Rules database"
+    database: cisco_demo
+    schema: edw_ref_br_db_br
+    tables:
+      - name: r_products
+        description: "Reference product data"
+        columns:
+          - name: bk_product_id
+            description: "Product ID"
+          - name: bk_product_type_id
+            description: "Product type (SWITCH, ROUTER, WIRELESS)"
+          - name: bk_business_unit_id
+            description: "Business unit ID"
+
+  - name: edw_ref_br_db_br_view
+    description: "EDW Reference Business Rules database - View schema"
+    database: cisco_demo
+    schema: edw_ref_br_db_br_view
+    tables:
+      - name: mt_cx_solution_hierarchy
+        description: "CX solution hierarchy"
+        columns:
+          - name: bk_product_id
+            description: "Product ID"
+          - name: level3_comp_key
+            description: "Level 3 component key"
+          - name: level5_comp_name
+            description: "Level 5 component name"
+
+  - name: cx_db_cx_grit_br
+    description: "CX database - GRIT Business Rules"
+    database: cisco_demo
+    schema: cx_db_cx_grit_br
+    tables:
+      - name: oneview_iacv_tbl
+        description: "OneView IACV (Incremental Annual Contract Value) table"
+        columns:
+          - name: be_cx_custom_portfolio
+            description: "Business entity CX custom portfolio"
+          - name: pmg_in_scope
+            description: "PMG in scope indicator"
+          - name: source
+            description: "Data source"
+          - name: sav_sales_level_1
+            description: "Sales hierarchy level 1"
+          - name: goaling_period_quarter
+            description: "Goaling period quarter"
+          - name: forecast_status_c
+            description: "Forecast status"
+
+      - name: tableau_6699_2_group
+        description: "Tableau grouping table for portfolio classification"
+        columns:
+          - name: x_be_cx_custom_portfolio
+            description: "Business entity CX custom portfolio"
+          - name: x_be_cx_custom_portfolio_group_1
+            description: "Portfolio group (CAI, TS, Support)"
