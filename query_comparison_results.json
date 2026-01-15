@@ -1,0 +1,33 @@
+{
+  "optimized": {
+    "query_id": "01c1bba0-0307-7e6e-001c-99870c47e496",
+    "python_time": 42.06263745808974,
+    "metrics": {
+      "query_id": "01c1bba0-0307-7e6e-001c-99870c47e496",
+      "execution_time": 11049,
+      "total_elapsed_time": 11508,
+      "bytes_scanned": 352696832,
+      "rows_produced": 1350197
+    }
+  },
+  "non_optimized": {
+    "query_id": "01c1bb9f-0307-7e78-001c-99870c48021e",
+    "python_time": 43.77566433418542,
+    "metrics": {
+      "query_id": "01c1bb9f-0307-7e78-001c-99870c48021e",
+      "execution_time": 11558,
+      "total_elapsed_time": 12303,
+      "bytes_scanned": 352696832,
+      "rows_produced": 1350197
+    }
+  },
+  "validation": {
+    "pass": true,
+    "details": {
+      "row_count_match": true,
+      "column_match": true,
+      "values_match": true,
+      "details": []
+    }
+  }
+}
