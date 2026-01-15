@@ -1,33 +1,35 @@
 {
   "optimized": {
-    "query_id": "01c1bba0-0307-7e6e-001c-99870c47e496",
-    "python_time": 42.06263745808974,
+    "query_id": "01c1bfc4-0307-805f-001c-99870c4d11e2",
+    "python_time": 24.340911166975275,
     "metrics": {
-      "query_id": "01c1bba0-0307-7e6e-001c-99870c47e496",
-      "execution_time": 11049,
-      "total_elapsed_time": 11508,
-      "bytes_scanned": 352696832,
-      "rows_produced": 1350197
+      "query_id": "01c1bfc4-0307-805f-001c-99870c4d11e2",
+      "execution_time": 16932,
+      "total_elapsed_time": 20709,
+      "bytes_scanned": 18829934576,
+      "rows_produced": 10000
     }
   },
   "non_optimized": {
-    "query_id": "01c1bb9f-0307-7e78-001c-99870c48021e",
-    "python_time": 43.77566433418542,
+    "query_id": "01c1bfc3-0307-805f-001c-99870c4d11ba",
+    "python_time": 59.81769545795396,
     "metrics": {
-      "query_id": "01c1bb9f-0307-7e78-001c-99870c48021e",
-      "execution_time": 11558,
-      "total_elapsed_time": 12303,
-      "bytes_scanned": 352696832,
-      "rows_produced": 1350197
+      "query_id": "01c1bfc3-0307-805f-001c-99870c4d11ba",
+      "execution_time": 50378,
+      "total_elapsed_time": 56612,
+      "bytes_scanned": 34697379088,
+      "rows_produced": 10000
     }
   },
   "validation": {
-    "pass": true,
+    "pass": false,
     "details": {
       "row_count_match": true,
       "column_match": true,
-      "values_match": true,
-      "details": []
+      "values_match": false,
+      "details": [
+        "4545 rows with value differences"
+      ]
     }
   }
 }

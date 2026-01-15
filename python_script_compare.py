@@ -48,8 +48,8 @@ SNOWFLAKE_PASSWORD = None  # Example: 'your-password-here'
 PRIVATE_KEY_PATH = '/Users/anas/snowflake_key.pem'
 
 # File paths for the SQL queries to compare
-OPTIMIZED_QUERY_PATH = "/Users/anas/demos/cisco_demo/jaffle-shop/target/compiled/jaffle_shop_test/models/cisco/query2_sales_revenue_optimized.sql"
-NON_OPTIMIZED_QUERY_PATH = "/Users/anas/demos/cisco_demo/jaffle-shop/target/compiled/jaffle_shop_test/models/cisco/query2_sales_revenue.sql"
+OPTIMIZED_QUERY_PATH = "tpch_snowflake_queries/JIRA_QUERY_OPTIMIZED.sql"
+NON_OPTIMIZED_QUERY_PATH = "tpch_snowflake_queries/JIRA_query.sql"
 
 # Output file for results
 OUTPUT_JSON_PATH = "query_comparison_results.json"
