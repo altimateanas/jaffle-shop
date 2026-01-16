@@ -36,3 +36,6 @@ models:
       cisco:
         +schema: cisco
         +database: cisco_demo
+      altimate:
+        +schema: altimate
+        +database: cisco_demo

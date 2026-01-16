@@ -1,0 +1,35 @@
+{
+  "model_1": {
+    "name": "query_4",
+    "query_id": "01c1c697-0307-8312-001c-99870c553a42",
+    "python_time": 53.99849283299409,
+    "metrics": {
+      "query_id": "01c1c697-0307-8312-001c-99870c553a42",
+      "execution_time": 48573,
+      "total_elapsed_time": 53360,
+      "bytes_scanned": 197754991664,
+      "rows_produced": 101
+    }
+  },
+  "model_2": {
+    "name": "query_4_optimized",
+    "query_id": "01c1c698-0307-82d5-001c-99870c5580da",
+    "python_time": 37.835287207970396,
+    "metrics": {
+      "query_id": "01c1c698-0307-82d5-001c-99870c5580da",
+      "execution_time": 34212,
+      "total_elapsed_time": 37394,
+      "bytes_scanned": 197754991664,
+      "rows_produced": 101
+    }
+  },
+  "validation": {
+    "pass": true,
+    "details": {
+      "row_count_match": true,
+      "column_match": true,
+      "values_match": true,
+      "details": []
+    }
+  }
+}

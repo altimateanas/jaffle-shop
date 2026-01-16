@@ -1,18 +1,157 @@
 #!/usr/bin/env python3
 """
-Snowflake Query Performance and Correctness Comparison Script
+DBT Model Performance and Correctness Comparison Script
 
-This script compares two Snowflake SQL queries (optimized vs non-optimized) by:
-1. Executing both queries with cache disabled
-2. Collecting performance metrics from Snowflake's query history
-3. Validating that both queries return identical results
-4. Comparing execution times and resource usage
-5. Outputting results to console and JSON file
+IMPORTANT: HOW TO USE THIS SCRIPT
+================================================================================
+
+This script compares two DBT models (e.g., optimized vs non-optimized) by:
+1. **Compiling the models**: Uses `dbt compile` to generate compiled SQL from
+   your DBT model files (handles Jinja templating, refs, sources, etc.)
+2. **Executing queries**: Runs both compiled SQL queries on Snowflake with
+   cache disabled to get accurate performance metrics
+3. **Validating correctness**: Compares results row-by-row to ensure both
+   queries return identical data
+4. **Measuring performance**: Collects execution time, bytes scanned, and other
+   Snowflake metrics
+5. **Outputting results**: Displays comparison in console and saves to JSON
+
+COMPILATION WORKFLOW:
+---------------------
+The script automatically handles the compilation of both models specified in
+MODEL_1_PATH and MODEL_2_PATH configuration variables. For each model:
+
+1. Runs: `dbt compile --select <model_path>`
+   - Example: `dbt compile --select altimate/development`
+   - This compiles the .sql file from models/ directory
+
+2. Reads compiled SQL from: `target/compiled/<project_name>/models/<model_path>.sql`
+   - Example: `target/compiled/jaffle_shop_test/models/altimate/development.sql`
+   - The compiled SQL has all Jinja logic resolved and is ready to execute
+
+3. Uses the compiled SQL for execution and validation
+   - Ensures you're testing the actual SQL that DBT would run
+   - No need for manual compilation or SQL copying
+
+CONFIGURATION:
+--------------
+Before running this script, configure the following variables:
+
+1. SNOWFLAKE_CONFIG: Your Snowflake connection details
+   - account, user, warehouse, database, schema, role
+
+2. Authentication (choose one):
+   - SNOWFLAKE_PASSWORD: For password authentication (simpler)
+   - PRIVATE_KEY_PATH: For key-pair authentication (more secure)
+
+3. DBT_PROJECT_DIR: Absolute path to your DBT project directory
+   - Example: "/Users/anas/demos/cisco_demo/jaffle-shop"
+
+4. DBT_PROFILES_DIR: Path to your DBT profiles directory
+   - Default: "~/.dbt" (where profiles.yml is located)
+
+5. MODEL_1_PATH and MODEL_2_PATH: Relative paths to models from models/ directory
+   - Example: "altimate/development" → models/altimate/development.sql
+   - Example: "cisco/query2_sales_revenue" → models/cisco/query2_sales_revenue.sql
+
+USAGE:
+------
+1. Ensure DBT is installed and profiles configured:
+   ```bash
+   dbt --version
+   dbt debug  # Verify connection works
+   ```
+
+2. Set the model paths you want to compare (edit this script):
+   ```python
+   MODEL_1_PATH = "cisco/query2_sales_revenue"
+   MODEL_2_PATH = "cisco/query2_sales_revenue_optimized"
+   ```
+
+3. Run the script:
+   ```bash
+   python dbt_model_compare.py
+   ```
+
+4. Review output:
+   - Console shows step-by-step progress
+   - JSON file contains detailed metrics
+
+WHAT GETS COMPILED:
+-------------------
+The script compiles your raw DBT model files which may contain:
+- Jinja templating: {{ ref('other_model') }}, {{ source('schema', 'table') }}
+- Macros: {{ macro_name() }}
+- DBT functions: {{ config(...) }}
+- Variables: {{ var('variable_name') }}
+
+Example model file (models/altimate/development.sql):
+```sql
+{{ config(materialized='view') }}
+
+SELECT
+    c_custkey,
+    c_name,
+    COUNT(o_orderkey) as order_count
+FROM {{ ref('stg_customers') }} c
+LEFT JOIN {{ source('tpch', 'orders') }} o
+    ON c.c_custkey = o.o_custkey
+GROUP BY c_custkey, c_name
+```
+
+After compilation (target/compiled/.../development.sql):
+```sql
+SELECT
+    c_custkey,
+    c_name,
+    COUNT(o_orderkey) as order_count
+FROM cisco_demo.cisco.stg_customers c
+LEFT JOIN cisco_demo.tpch.orders o
+    ON c.c_custkey = o.o_custkey
+GROUP BY c_custkey, c_name
+```
+
+The script uses the compiled version for execution and validation.
+
+VALIDATION DETAILS:
+-------------------
+The script performs comprehensive validation to ensure both models produce
+identical results:
+
+1. Row Count Check: Ensures both queries return the same number of rows
+2. Column Check: Verifies column names and order match exactly
+3. Value Check: Compares all values (order-independent) to detect differences
+
+If validation fails, the script reports exactly what differs.
+
+OUTPUT:
+-------
+- Console: Detailed step-by-step progress with metrics
+- JSON file (dbt_model_comparison_results.json):
+  * Query IDs for both models
+  * Execution times (Python and Snowflake)
+  * Bytes scanned
+  * Validation results
+  * All performance metrics
+
+REQUIREMENTS:
+-------------
+Python packages:
+- snowflake-connector-python
+- pandas
+- cryptography (for key-pair auth)
+- dbt-core and dbt-snowflake
+
+Install with:
+```bash
+pip install snowflake-connector-python pandas cryptography dbt-core dbt-snowflake
+```
 
 Dependencies:
 - snowflake-connector-python
 - pandas
 - cryptography (for key-pair authentication)
+- dbt-core (for compiling models)
 """
 
 import os
@@ -20,9 +159,11 @@ import sys
 import time
 import json
 import subprocess
+import tempfile
 import snowflake.connector
 import pandas as pd
-from typing import Dict, Any, Tuple
+from pathlib import Path
+from typing import Dict, Any, Tuple, Optional
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
@@ -30,7 +171,7 @@ from cryptography.hazmat.primitives import serialization
 # CONFIGURATION & CONSTANTS
 # ============================================================================
 
-# IMP: Kindly update the Snowflake config with your account details:
+# Snowflake configuration - update with your account details
 SNOWFLAKE_CONFIG = {
     'account': 'BZB11272',
     'user': 'SERVICE_USER',
@@ -42,33 +183,30 @@ SNOWFLAKE_CONFIG = {
 
 # Authentication options (configure ONE of these):
 # Option 1: Password authentication (simplest)
-# Set this to your password string, or leave as None to use key-pair authentication
 SNOWFLAKE_PASSWORD = None  # Example: 'your-password-here'
+
 # Option 2: Key-pair authentication (more secure)
-# Path to your private key PEM file
-# If SNOWFLAKE_PASSWORD is None, this key file will be used
 PRIVATE_KEY_PATH = '/Users/anas/snowflake_key.pem'
 
-# dbt model names (without .sql extension) to compile
-# These are the model names in your dbt project
-OPTIMIZED_MODEL_NAME = "development_optimized"  # The optimized dbt model
-NON_OPTIMIZED_MODEL_NAME = "development"  # The non-optimized dbt model
+# DBT project configuration
+DBT_PROJECT_DIR = "/Users/anas/demos/cisco_demo/jaffle-shop"
+DBT_PROFILES_DIR = os.path.expanduser("~/.dbt")
 
-# File paths for the SQL queries to compare
-# After compilation, these will point to the compiled SQL in target/compiled/
-OPTIMIZED_QUERY_PATH = "models/altimate/development_optimized.sql"
-NON_OPTIMIZED_QUERY_PATH = "models/altimate/development.sql"
+# Models to compare (relative paths from models/ directory)
+# Examples:
+#   "cisco/query1_service_quotes"
+#   "cisco/query2_sales_revenue"
+#   "cisco/query2_sales_revenue_optimized"
+MODEL_1_PATH = "altimate/query_4"  # Non-optimized model
+MODEL_2_PATH = "altimate/query_4_optimized"  # Optimized model
 
 # Output file for results
-OUTPUT_JSON_PATH = "query_comparison_results.json"
+OUTPUT_JSON_PATH = "dbt_model_comparison_results.json"
 
-# SQL command to disable Snowflake's result caching
+# SQL commands
 DISABLE_CACHE_SQL = "ALTER SESSION SET USE_CACHED_RESULT = FALSE;"
-
-# SQL to retrieve the last executed query ID
 GET_LAST_QUERY_ID_SQL = "SELECT LAST_QUERY_ID();"
 
-# SQL to fetch metrics from query history for a specific query ID
 GET_QUERY_METRICS_SQL = """
 SELECT 
     query_id,
@@ -79,6 +217,99 @@ SELECT
 FROM TABLE(INFORMATION_SCHEMA.QUERY_HISTORY_BY_SESSION())
 WHERE query_id = %s
 """
+
+
+# ============================================================================
+# DBT OPERATIONS
+# ============================================================================
+
+def compile_dbt_model(model_path: str, project_dir: str = DBT_PROJECT_DIR) -> str:
+    """
+    Compiles a DBT model to SQL using 'dbt compile'.
+    
+    Args:
+        model_path: Path to the DBT model (e.g., "cisco/query1_service_quotes")
+        project_dir: Path to the DBT project directory
+    
+    Returns:
+        str: Compiled SQL content
+    
+    Raises:
+        RuntimeError: If DBT compilation fails
+        FileNotFoundError: If compiled SQL file is not found
+    """
+    print(f"\nCompiling DBT model: {model_path}")
+    print("-" * 80)
+    
+    # Change to project directory
+    original_dir = os.getcwd()
+    os.chdir(project_dir)
+    
+    try:
+        # Run dbt compile for the specific model
+        cmd = [
+            "dbt", "compile",
+            "--select", model_path,
+            "--profiles-dir", DBT_PROFILES_DIR
+        ]
+        
+        print(f"Running: {' '.join(cmd)}")
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        if result.returncode != 0:
+            print(f"✗ DBT compilation failed!")
+            print(f"STDOUT:\n{result.stdout}")
+            print(f"STDERR:\n{result.stderr}")
+            raise RuntimeError(f"DBT compilation failed for model: {model_path}")
+        
+        print("✓ DBT compilation successful")
+        
+        # Find the compiled SQL file
+        # DBT compiles models to target/compiled/{project_name}/models/{model_path}.sql
+        project_name = "jaffle_shop_test"  # From dbt_project.yml
+        compiled_path = os.path.join(
+            project_dir,
+            "target",
+            "compiled",
+            project_name,
+            "models",
+            f"{model_path}.sql"
+        )
+        
+        print(f"Looking for compiled SQL at: {compiled_path}")
+        
+        if not os.path.exists(compiled_path):
+            raise FileNotFoundError(f"Compiled SQL not found at: {compiled_path}")
+        
+        # Read the compiled SQL
+        with open(compiled_path, 'r') as f:
+            compiled_sql = f.read().strip()
+        
+        print(f"✓ Loaded compiled SQL ({len(compiled_sql)} characters)")
+        
+        return compiled_sql
+    
+    finally:
+        # Return to original directory
+        os.chdir(original_dir)
+
+
+def get_dbt_model_name(model_path: str) -> str:
+    """
+    Extracts the model name from a model path.
+    
+    Args:
+        model_path: Model path (e.g., "cisco/query1_service_quotes")
+    
+    Returns:
+        str: Model name (e.g., "query1_service_quotes")
+    """
+    return Path(model_path).name
 
 
 # ============================================================================
@@ -104,15 +335,12 @@ def load_private_key(key_path: str) -> bytes:
     with open(key_path, 'rb') as key_file:
         private_key_data = key_file.read()
     
-    # Parse the private key (assuming no passphrase)
-    # If your key has a passphrase, add: password=b'your-passphrase'
     private_key = serialization.load_pem_private_key(
         private_key_data,
-        password=None,  # Change this if your key has a passphrase
+        password=None,
         backend=default_backend()
     )
     
-    # Convert to DER format (required by snowflake-connector-python)
     private_key_der = private_key.private_bytes(
         encoding=serialization.Encoding.DER,
         format=serialization.PrivateFormat.PKCS8,
@@ -125,16 +353,11 @@ def load_private_key(key_path: str) -> bytes:
 
 def create_snowflake_connection() -> snowflake.connector.SnowflakeConnection:
     """
-    Establishes a connection to Snowflake using hardcoded configuration.
+    Establishes a connection to Snowflake using configuration from SNOWFLAKE_CONFIG.
     
     Supports two authentication methods:
     1. Password authentication: If SNOWFLAKE_PASSWORD is set
     2. Key-pair authentication: If SNOWFLAKE_PASSWORD is None, uses PRIVATE_KEY_PATH
-    
-    Configuration is read from:
-        - SNOWFLAKE_CONFIG: Dictionary with account, user, warehouse, database, schema, role
-        - SNOWFLAKE_PASSWORD: Password string (if using password auth)
-        - PRIVATE_KEY_PATH: Path to private key PEM file (if using key-pair auth)
     
     Returns:
         snowflake.connector.SnowflakeConnection: Active Snowflake connection
@@ -143,10 +366,9 @@ def create_snowflake_connection() -> snowflake.connector.SnowflakeConnection:
         ValueError: If neither password nor private key is properly configured
         snowflake.connector.errors.Error: If connection fails
     """
-    # Start with base connection parameters
     connection_params = SNOWFLAKE_CONFIG.copy()
     
-    print("Connecting to Snowflake...")
+    print("\nConnecting to Snowflake...")
     print(f"  Account: {connection_params['account']}")
     print(f"  User: {connection_params['user']}")
     print(f"  Warehouse: {connection_params['warehouse']}")
@@ -154,13 +376,10 @@ def create_snowflake_connection() -> snowflake.connector.SnowflakeConnection:
     print(f"  Schema: {connection_params['schema']}")
     print(f"  Role: {connection_params['role']}")
     
-    # Determine authentication method and add appropriate credentials
     if SNOWFLAKE_PASSWORD is not None:
-        # Option 1: Password authentication
         print("  Authentication: Password")
         connection_params['password'] = SNOWFLAKE_PASSWORD
     elif PRIVATE_KEY_PATH:
-        # Option 2: Key-pair authentication
         print("  Authentication: Key-pair (private key)")
         try:
             private_key_der = load_private_key(PRIVATE_KEY_PATH)
@@ -175,129 +394,10 @@ def create_snowflake_connection() -> snowflake.connector.SnowflakeConnection:
             "Please set either SNOWFLAKE_PASSWORD or PRIVATE_KEY_PATH"
         )
     
-    # Establish the connection
     conn = snowflake.connector.connect(**connection_params)
     print("✓ Successfully connected to Snowflake\n")
     
     return conn
-
-
-# ============================================================================
-# DBT COMPILATION
-# ============================================================================
-
-def compile_dbt_models(model_names: list) -> Dict[str, str]:
-    """
-    Compiles dbt models and returns paths to the compiled SQL files.
-    
-    This function:
-    1. Runs 'dbt compile --select <model_name>' for each model
-    2. Locates the compiled SQL in target/compiled/ directory
-    3. Returns a dictionary mapping model names to compiled file paths
-    
-    Args:
-        model_names: List of dbt model names to compile (without .sql extension)
-    
-    Returns:
-        Dict mapping model names to their compiled SQL file paths
-    
-    Raises:
-        RuntimeError: If dbt compilation fails
-        FileNotFoundError: If compiled files cannot be found
-    """
-    compiled_paths = {}
-    
-    print("=" * 80)
-    print("DBT MODEL COMPILATION")
-    print("=" * 80)
-    
-    for model_name in model_names:
-        print(f"\nCompiling dbt model: {model_name}")
-        print("-" * 80)
-        
-        # Run dbt compile for this specific model
-        compile_command = ["dbt", "compile", "--select", model_name]
-        print(f"Running command: {' '.join(compile_command)}")
-        
-        try:
-            result = subprocess.run(
-                compile_command,
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            
-            # Print dbt output for visibility
-            if result.stdout:
-                print("\ndbt output:")
-                for line in result.stdout.split('\n')[-10:]:  # Show last 10 lines
-                    if line.strip():
-                        print(f"  {line}")
-            
-            print(f"✓ Successfully compiled model: {model_name}")
-            
-        except subprocess.CalledProcessError as e:
-            print(f"\n✗ ERROR: dbt compilation failed for model '{model_name}'")
-            print(f"\nError output:")
-            print(e.stderr)
-            raise RuntimeError(f"Failed to compile dbt model '{model_name}': {e}")
-        
-        # Find the compiled SQL file in target/compiled/
-        # The typical path structure is: target/compiled/<project_name>/models/<subdirs>/<model_name>.sql
-        # We'll search for it recursively
-        compiled_base = "target/compiled"
-        
-        if not os.path.exists(compiled_base):
-            raise FileNotFoundError(
-                f"Compiled directory not found: {compiled_base}. "
-                "Ensure dbt compilation completed successfully."
-            )
-        
-        # Search for the compiled model file
-        compiled_file_path = None
-        for root, dirs, files in os.walk(compiled_base):
-            if f"{model_name}.sql" in files:
-                compiled_file_path = os.path.join(root, f"{model_name}.sql")
-                break
-        
-        if not compiled_file_path:
-            raise FileNotFoundError(
-                f"Could not find compiled SQL for model '{model_name}' in {compiled_base}"
-            )
-        
-        print(f"  Located compiled SQL: {compiled_file_path}")
-        compiled_paths[model_name] = compiled_file_path
-    
-    print("\n" + "=" * 80)
-    print("✓ ALL MODELS COMPILED SUCCESSFULLY")
-    print("=" * 80 + "\n")
-    
-    return compiled_paths
-
-
-# ============================================================================
-# QUERY FILE LOADING
-# ============================================================================
-
-def load_sql_file(file_path: str) -> str:
-    """
-    Reads SQL query content from a file.
-    
-    Args:
-        file_path: Path to the SQL file
-    
-    Returns:
-        str: SQL query content
-    
-    Raises:
-        FileNotFoundError: If the file doesn't exist
-        IOError: If the file cannot be read
-    """
-    print(f"Loading SQL from: {file_path}")
-    with open(file_path, 'r') as f:
-        sql_content = f.read().strip()
-    print(f"  ✓ Loaded {len(sql_content)} characters\n")
-    return sql_content
 
 
 # ============================================================================
@@ -312,49 +412,39 @@ def execute_query_with_metrics(
     """
     Executes a Snowflake query with cache disabled and collects performance metrics.
     
-    This function:
-    1. Disables Snowflake's result cache
-    2. Times the query execution using Python's perf_counter
-    3. Executes the query and fetches all results into a DataFrame
-    4. Retrieves the query ID and fetches detailed metrics from query history
-    
     Args:
         conn: Active Snowflake connection
         query_sql: SQL query to execute
-        query_name: Descriptive name for logging (e.g., "Optimized" or "Non-Optimized")
+        query_name: Descriptive name for logging
     
     Returns:
         Dict containing:
             - 'query_id': Snowflake query ID
             - 'python_time': Execution time measured by Python (seconds)
             - 'result_df': Pandas DataFrame with query results
-            - 'metrics': Dict with Snowflake metrics (execution_time, bytes_scanned, etc.)
+            - 'metrics': Dict with Snowflake metrics
     """
     cursor = conn.cursor()
     
     try:
-        # Step 1: Disable result caching to ensure accurate performance measurements
+        # Disable result caching
         print(f"[{query_name}] Disabling result cache...")
         cursor.execute(DISABLE_CACHE_SQL)
         
-        # Step 2: Start timing the query execution
+        # Execute and time the query
         print(f"[{query_name}] Executing query...")
         start_time = time.perf_counter()
         
-        # Step 3: Execute the actual query
         cursor.execute(query_sql)
-        
-        # Step 4: Fetch all results into a Pandas DataFrame
         result_df = cursor.fetch_pandas_all()
         
-        # Step 5: Stop timing
         end_time = time.perf_counter()
         python_execution_time = end_time - start_time
         
         print(f"[{query_name}] ✓ Query completed in {python_execution_time:.3f} seconds")
-        print(f"[{query_name}]   Rows returned: {len(result_df)}")
+        print(f"[{query_name}]   Rows returned: {len(result_df):,}")
         
-        # Step 6: Get the query ID of the query we just executed
+        # Get query ID
         cursor.execute(GET_LAST_QUERY_ID_SQL)
         query_id_result = cursor.fetchone()
         query_id = query_id_result[0] if query_id_result else None
@@ -364,7 +454,7 @@ def execute_query_with_metrics(
         
         print(f"[{query_name}]   Query ID: {query_id}")
         
-        # Step 7: Fetch detailed metrics from Snowflake's query history
+        # Fetch metrics from query history
         print(f"[{query_name}] Fetching metrics from query history...")
         cursor.execute(GET_QUERY_METRICS_SQL, (query_id,))
         metrics_row = cursor.fetchone()
@@ -372,12 +462,10 @@ def execute_query_with_metrics(
         if not metrics_row:
             raise ValueError(f"No metrics found for query ID: {query_id}")
         
-        # Step 8: Parse metrics into a dictionary
-        # Columns: query_id, execution_time, total_elapsed_time, bytes_scanned, rows_produced
         metrics = {
             'query_id': metrics_row[0],
-            'execution_time': metrics_row[1],  # milliseconds
-            'total_elapsed_time': metrics_row[2],  # milliseconds
+            'execution_time': metrics_row[1],
+            'total_elapsed_time': metrics_row[2],
             'bytes_scanned': metrics_row[3],
             'rows_produced': metrics_row[4]
         }
@@ -395,7 +483,6 @@ def execute_query_with_metrics(
         }
     
     finally:
-        # Always close the cursor to free resources
         cursor.close()
 
 
@@ -406,8 +493,8 @@ def execute_query_with_metrics(
 def validate_results(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
-    name1: str = "Optimized",
-    name2: str = "Non-Optimized"
+    name1: str = "Model 1",
+    name2: str = "Model 2"
 ) -> Tuple[bool, Dict[str, Any]]:
     """
     Validates that two query results are identical (order-independent).
@@ -420,8 +507,8 @@ def validate_results(
     Args:
         df1: First DataFrame to compare
         df2: Second DataFrame to compare
-        name1: Name of first query for logging
-        name2: Name of second query for logging
+        name1: Name of first model for logging
+        name2: Name of second model for logging
     
     Returns:
         Tuple of (bool, Dict):
@@ -481,30 +568,22 @@ def validate_results(
     # Check 3: Values (order-independent comparison)
     print(f"\n3. Checking values (order-independent)...")
     
-    # Sort both DataFrames by all columns to enable order-independent comparison
-    # Reset index after sorting to ensure proper comparison
     df1_sorted = df1.sort_values(by=list(df1.columns)).reset_index(drop=True)
     df2_sorted = df2.sort_values(by=list(df2.columns)).reset_index(drop=True)
     
-    # Compare the sorted DataFrames
     if df1_sorted.equals(df2_sorted):
         print("   ✓ All values match (order-independent)")
         validation_details['values_match'] = True
     else:
         print("   ✗ Values differ")
-        
-        # Find differences for reporting
         comparison = df1_sorted.compare(df2_sorted)
         if not comparison.empty:
             print(f"   Found {len(comparison)} rows with differences")
             validation_details['details'].append(f"{len(comparison)} rows with value differences")
         else:
-            # If compare() returns empty but equals() is False, might be data type differences
             validation_details['details'].append("Data type or floating point precision differences")
-        
         return False, validation_details
     
-    # All checks passed
     print("\n" + "=" * 80)
     print("✓ VALIDATION PASSED - Results are identical")
     print("=" * 80 + "\n")
@@ -517,72 +596,75 @@ def validate_results(
 # ============================================================================
 
 def print_performance_comparison(
-    optimized_results: Dict[str, Any],
-    non_optimized_results: Dict[str, Any]
+    model1_results: Dict[str, Any],
+    model2_results: Dict[str, Any],
+    model1_name: str,
+    model2_name: str
 ) -> None:
     """
-    Prints a formatted table comparing performance metrics of both queries.
+    Prints a formatted table comparing performance metrics of both models.
     
     Args:
-        optimized_results: Results dictionary from optimized query execution
-        non_optimized_results: Results dictionary from non-optimized query execution
+        model1_results: Results dictionary from first model execution
+        model2_results: Results dictionary from second model execution
+        model1_name: Name of first model
+        model2_name: Name of second model
     """
     print("=" * 120)
     print("PERFORMANCE COMPARISON")
     print("=" * 120)
     
-    # Extract metrics for easier access
-    opt_metrics = optimized_results['metrics']
-    non_opt_metrics = non_optimized_results['metrics']
+    metrics1 = model1_results['metrics']
+    metrics2 = model2_results['metrics']
     
     # Print header
-    header = f"{'Query':<20} | {'Python Time (s)':<15} | {'Execution Time (ms)':<20} | {'Bytes Scanned':<15} | {'Rows':<10} | {'Columns':<8}"
+    header = f"{'Model':<30} | {'Python Time (s)':<15} | {'Execution Time (ms)':<20} | {'Bytes Scanned':<15} | {'Rows':<10}"
     print(header)
     print("-" * 120)
     
-    # Print optimized query metrics
-    opt_row = (
-        f"{'Optimized':<20} | "
-        f"{optimized_results['python_time']:<15.3f} | "
-        f"{opt_metrics['execution_time']:<20,} | "
-        f"{opt_metrics['bytes_scanned']:<15,} | "
-        f"{opt_metrics['rows_produced']:<10,}"
+    # Print model 1 metrics
+    row1 = (
+        f"{model1_name:<30} | "
+        f"{model1_results['python_time']:<15.3f} | "
+        f"{metrics1['execution_time']:<20,} | "
+        f"{metrics1['bytes_scanned']:<15,} | "
+        f"{metrics1['rows_produced']:<10,}"
     )
-    print(opt_row)
+    print(row1)
     
-    # Print non-optimized query metrics
-    non_opt_row = (
-        f"{'Non-Optimized':<20} | "
-        f"{non_optimized_results['python_time']:<15.3f} | "
-        f"{non_opt_metrics['execution_time']:<20,} | "
-        f"{non_opt_metrics['bytes_scanned']:<15,} | "
-        f"{non_opt_metrics['rows_produced']:<10,}"
+    # Print model 2 metrics
+    row2 = (
+        f"{model2_name:<30} | "
+        f"{model2_results['python_time']:<15.3f} | "
+        f"{metrics2['execution_time']:<20,} | "
+        f"{metrics2['bytes_scanned']:<15,} | "
+        f"{metrics2['rows_produced']:<10,}"
     )
-    print(non_opt_row)
+    print(row2)
     
     print("-" * 120)
     
     # Calculate and print performance improvements
-    print("\nPERFORMANCE IMPROVEMENT:")
+    print(f"\nPERFORMANCE IMPROVEMENT ({model2_name} vs {model1_name}):")
     
     # Python execution time improvement
     time_improvement = (
-        (non_optimized_results['python_time'] - optimized_results['python_time']) 
-        / non_optimized_results['python_time'] * 100
+        (model1_results['python_time'] - model2_results['python_time']) 
+        / model1_results['python_time'] * 100
     )
     print(f"  Python Time: {time_improvement:+.2f}% ({'faster' if time_improvement > 0 else 'slower'})")
     
     # Snowflake execution time improvement
     sf_time_improvement = (
-        (non_opt_metrics['execution_time'] - opt_metrics['execution_time']) 
-        / non_opt_metrics['execution_time'] * 100
+        (metrics1['execution_time'] - metrics2['execution_time']) 
+        / metrics1['execution_time'] * 100
     )
     print(f"  Snowflake Execution Time: {sf_time_improvement:+.2f}% ({'faster' if sf_time_improvement > 0 else 'slower'})")
     
     # Bytes scanned improvement
     bytes_improvement = (
-        (non_opt_metrics['bytes_scanned'] - opt_metrics['bytes_scanned']) 
-        / non_opt_metrics['bytes_scanned'] * 100
+        (metrics1['bytes_scanned'] - metrics2['bytes_scanned']) 
+        / metrics1['bytes_scanned'] * 100
     )
     print(f"  Bytes Scanned: {bytes_improvement:+.2f}% ({'less' if bytes_improvement > 0 else 'more'} data scanned)")
     
@@ -594,8 +676,10 @@ def print_performance_comparison(
 # ============================================================================
 
 def save_results_to_json(
-    optimized_results: Dict[str, Any],
-    non_optimized_results: Dict[str, Any],
+    model1_results: Dict[str, Any],
+    model2_results: Dict[str, Any],
+    model1_name: str,
+    model2_name: str,
     validation_passed: bool,
     validation_details: Dict[str, Any],
     output_path: str = OUTPUT_JSON_PATH
@@ -604,23 +688,26 @@ def save_results_to_json(
     Saves comparison results to a JSON file.
     
     Args:
-        optimized_results: Results from optimized query
-        non_optimized_results: Results from non-optimized query
+        model1_results: Results from first model
+        model2_results: Results from second model
+        model1_name: Name of first model
+        model2_name: Name of second model
         validation_passed: Whether validation passed
         validation_details: Details about validation checks
         output_path: Path where JSON file should be saved
     """
-    # Prepare the output structure
     output = {
-        'optimized': {
-            'query_id': optimized_results['query_id'],
-            'python_time': optimized_results['python_time'],
-            'metrics': optimized_results['metrics']
+        'model_1': {
+            'name': model1_name,
+            'query_id': model1_results['query_id'],
+            'python_time': model1_results['python_time'],
+            'metrics': model1_results['metrics']
         },
-        'non_optimized': {
-            'query_id': non_optimized_results['query_id'],
-            'python_time': non_optimized_results['python_time'],
-            'metrics': non_optimized_results['metrics']
+        'model_2': {
+            'name': model2_name,
+            'query_id': model2_results['query_id'],
+            'python_time': model2_results['python_time'],
+            'metrics': model2_results['metrics']
         },
         'validation': {
             'pass': validation_passed,
@@ -628,7 +715,6 @@ def save_results_to_json(
         }
     }
     
-    # Write to JSON file with pretty formatting
     print(f"Saving results to: {output_path}")
     with open(output_path, 'w') as f:
         json.dump(output, f, indent=2)
@@ -641,83 +727,90 @@ def save_results_to_json(
 
 def main():
     """
-    Main execution function that orchestrates the entire comparison process.
+    Main execution function that orchestrates the entire DBT model comparison process.
     
     Process:
-    1. Compile dbt models
-    2. Load compiled SQL queries from files
-    3. Connect to Snowflake
-    4. Execute both queries with metrics collection
-    5. Validate results match
-    6. Compare performance
-    7. Save results to JSON
+    1. Compile both DBT models to SQL
+    2. Connect to Snowflake
+    3. Execute both models with metrics collection
+    4. Validate results match
+    5. Compare performance
+    6. Save results to JSON
     """
     print("\n" + "=" * 80)
-    print("SNOWFLAKE QUERY COMPARISON TOOL")
+    print("DBT MODEL COMPARISON TOOL")
     print("=" * 80 + "\n")
     
     try:
-        # Step 1: Compile dbt models first
-        print("STEP 1: Compiling dbt models")
+        # Get model names for display
+        model1_name = get_dbt_model_name(MODEL_1_PATH)
+        model2_name = get_dbt_model_name(MODEL_2_PATH)
+        
+        print(f"Comparing DBT models:")
+        print(f"  Model 1: {MODEL_1_PATH}")
+        print(f"  Model 2: {MODEL_2_PATH}")
+        print()
+        
+        # Step 1: Compile both DBT models
+        print("STEP 1: Compiling DBT models")
         print("-" * 80)
-        models_to_compile = [OPTIMIZED_MODEL_NAME, NON_OPTIMIZED_MODEL_NAME]
-        compiled_paths = compile_dbt_models(models_to_compile)
         
-        # Update paths to use compiled versions
-        optimized_query_path = compiled_paths[OPTIMIZED_MODEL_NAME]
-        non_optimized_query_path = compiled_paths[NON_OPTIMIZED_MODEL_NAME]
+        model1_sql = compile_dbt_model(MODEL_1_PATH)
+        model2_sql = compile_dbt_model(MODEL_2_PATH)
         
-        # Step 2: Load compiled SQL queries from files
-        print("STEP 2: Loading compiled SQL queries")
-        print("-" * 80)
-        optimized_sql = load_sql_file(optimized_query_path)
-        non_optimized_sql = load_sql_file(non_optimized_query_path)
-        
-        # Step 3: Establish Snowflake connection
-        print("STEP 3: Connecting to Snowflake")
+        # Step 2: Establish Snowflake connection
+        print("\nSTEP 2: Connecting to Snowflake")
         print("-" * 80)
         conn = create_snowflake_connection()
         
         try:
-            # Step 4: Execute both queries and collect metrics
-            print("STEP 4: Executing queries and collecting metrics")
+            # Step 3: Execute both models and collect metrics
+            print("STEP 3: Executing models and collecting metrics")
             print("-" * 80)
-
-            # Execute non-optimized query FIRST
-            non_optimized_results = execute_query_with_metrics(
+            print()
+            
+            # Execute model 1
+            model1_results = execute_query_with_metrics(
                 conn,
-                non_optimized_sql,
-                "Non-Optimized"
-            )
-
-            # Execute optimized query SECOND
-            optimized_results = execute_query_with_metrics(
-                conn,
-                optimized_sql,
-                "Optimized"
+                model1_sql,
+                model1_name
             )
             
-            # Step 5: Validate that results are identical
-            print("STEP 5: Validating results")
+            # Execute model 2
+            model2_results = execute_query_with_metrics(
+                conn,
+                model2_sql,
+                model2_name
+            )
+            
+            # Step 4: Validate that results are identical
+            print("STEP 4: Validating results")
             print("-" * 80)
             validation_passed, validation_details = validate_results(
-                optimized_results['result_df'],
-                non_optimized_results['result_df'],
-                "Optimized",
-                "Non-Optimized"
+                model1_results['result_df'],
+                model2_results['result_df'],
+                model1_name,
+                model2_name
             )
             
-            # Step 6: Print performance comparison
-            print("STEP 6: Performance comparison")
+            # Step 5: Print performance comparison
+            print("STEP 5: Performance comparison")
             print("-" * 80)
-            print_performance_comparison(optimized_results, non_optimized_results)
+            print_performance_comparison(
+                model1_results,
+                model2_results,
+                model1_name,
+                model2_name
+            )
             
-            # Step 7: Save results to JSON file
-            print("STEP 7: Saving results")
+            # Step 6: Save results to JSON file
+            print("STEP 6: Saving results")
             print("-" * 80)
             save_results_to_json(
-                optimized_results,
-                non_optimized_results,
+                model1_results,
+                model2_results,
+                model1_name,
+                model2_name,
                 validation_passed,
                 validation_details
             )
@@ -726,15 +819,15 @@ def main():
             print("=" * 80)
             print("SUMMARY")
             print("=" * 80)
+            print(f"Model 1: {model1_name}")
+            print(f"Model 2: {model2_name}")
             print(f"Validation: {'✓ PASS' if validation_passed else '✗ FAIL'}")
             print(f"Output saved to: {OUTPUT_JSON_PATH}")
             print("=" * 80 + "\n")
             
-            # Exit with appropriate code
             return 0 if validation_passed else 1
             
         finally:
-            # Always close the connection
             print("Closing Snowflake connection...")
             conn.close()
             print("✓ Connection closed\n")
@@ -742,7 +835,8 @@ def main():
     except FileNotFoundError as e:
         print(f"\n✗ ERROR: File not found: {e}")
         print("\nPlease ensure:")
-        print("  - SQL query files exist at the specified paths")
+        print("  - DBT project directory is correct")
+        print("  - Model paths are valid")
         print("  - Private key file exists (if using key-pair authentication)")
         return 1
     except ValueError as e:
@@ -750,7 +844,9 @@ def main():
         print("\nPlease check:")
         print("  - SNOWFLAKE_CONFIG has all required fields")
         print("  - Either SNOWFLAKE_PASSWORD or PRIVATE_KEY_PATH is properly configured")
-        print("  - Private key file is valid (if using key-pair authentication)")
+        return 1
+    except RuntimeError as e:
+        print(f"\n✗ ERROR: {e}")
         return 1
     except Exception as e:
         print(f"\n✗ ERROR: {type(e).__name__}: {e}")
@@ -768,20 +864,23 @@ if __name__ == "__main__":
     Script entry point. Executes main() and exits with appropriate code.
     
     Usage:
-        python compare_snowflake_queries.py
+        python dbt_model_compare.py
     
     Configuration:
         Edit the following constants in the script:
         - SNOWFLAKE_CONFIG: Account, user, warehouse, database, schema, role
-        - SNOWFLAKE_PASSWORD: Set to your password (Option 1)
-        - PRIVATE_KEY_PATH: Path to private key PEM file (Option 2)
+        - SNOWFLAKE_PASSWORD or PRIVATE_KEY_PATH: Authentication method
+        - DBT_PROJECT_DIR: Path to your DBT project
+        - MODEL_1_PATH: First model to compare (e.g., "cisco/query2_sales_revenue")
+        - MODEL_2_PATH: Second model to compare (e.g., "cisco/query2_sales_revenue_optimized")
     
-    Input Files Required:
-        - query_4_dev_optimized.sql
-        - tpch_snowflake_queries/query_4_dev.sql
+    Requirements:
+        - dbt-core and dbt-snowflake installed
+        - DBT profiles configured (~/.dbt/profiles.yml)
+        - Snowflake credentials configured
     
     Output:
         - Console output with detailed progress and results
-        - query_comparison_results.json with metrics
+        - dbt_model_comparison_results.json with metrics
     """
     exit(main())
