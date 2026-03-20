@@ -27,6 +27,10 @@ clean-targets:
 
 require-dbt-version: [">=1.0.0", "<2.0.0"]
 
+# Enable query comments — comprehensive metadata appended to every SQL statement
+query-comment:
+  comment: '{{ altimate_snowflake_query_tags.get_query_comment(node) }}'
+  append: true
 
 models:
   jaffle_shop:
