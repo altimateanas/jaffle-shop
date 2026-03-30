@@ -33,3 +33,7 @@ models:
       materialized: table
       staging:
         materialized: view
+
+query-comment:
+  comment: '{{altimate_snowflake_query_tags.get_query_comment(node)}}'
+  append: true
