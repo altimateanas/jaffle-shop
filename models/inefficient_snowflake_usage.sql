@@ -5,25 +5,11 @@
     )
 }}
 
-/*
-    ⚠️ INEFFICIENT MODEL FOR OPTIMIZATION DEMONSTRATION ⚠️
-    
-    This model queries Snowflake Account Usage views with multiple anti-patterns:
-    - SELECT * from large views
-    - No date filtering (scans entire history)
-    - Multiple redundant scans of same views
-    - Cross joins creating massive intermediate results
-    - Expensive string operations
-    - Correlated subqueries
-    
-    ACCOUNT_USAGE views retain data for 1 year - this query scans ALL of it!
-*/
 
--- Anti-pattern: SELECT * from large usage views without date filtering
 with all_query_history as (
     select *
     from snowflake.account_usage.query_history
-    -- No WHERE clause = scans entire year of query history!
+
 ),
 
 all_warehouse_metering as (
@@ -46,7 +32,7 @@ all_access_history as (
     from snowflake.account_usage.access_history
 ),
 
--- Anti-pattern: Redundant scans of the same views
+
 query_history_scan_2 as (
     select *
     from snowflake.account_usage.query_history
@@ -57,7 +43,7 @@ warehouse_metering_scan_2 as (
     from snowflake.account_usage.warehouse_metering_history
 ),
 
--- Anti-pattern: Non-sargable WHERE clauses (functions on columns)
+
 filtered_queries as (
     select *
     from all_query_history
@@ -68,7 +54,7 @@ filtered_queries as (
        or position('SELECT' in upper(query_text)) > 0
 ),
 
--- Anti-pattern: Expensive string operations on query text
+
 query_text_analysis as (
     select
         query_id,
@@ -90,7 +76,7 @@ query_text_analysis as (
     where query_text is not null
 ),
 
--- Anti-pattern: Window functions causing multiple sorts
+
 query_rankings as (
     select
         query_id,
@@ -114,7 +100,7 @@ query_rankings as (
     from all_query_history
 ),
 
--- Anti-pattern: Correlated subqueries
+
 user_stats_correlated as (
     select
         distinct user_name,
@@ -139,7 +125,7 @@ user_warehouse_matrix as (
     cross join all_warehouse_metering w
 ),
 
--- Anti-pattern: UNION ALL instead of single aggregation
+
 warehouse_credits_by_type as (
     select 'COMPUTE' as category, sum(credits_used) as credits
     from all_warehouse_metering where warehouse_name like '%COMPUTE%'
@@ -179,7 +165,7 @@ hourly_query_stats as (
     group by 1
 ),
 
--- Anti-pattern: Self-join on large table
+
 query_sequence as (
     select
         q1.query_id as query1,
@@ -192,7 +178,7 @@ query_sequence as (
         and q1.query_id < q2.query_id
 ),
 
--- Anti-pattern: Mega join combining everything
+
 mega_usage_join as (
     select
         qh.query_id,
@@ -234,7 +220,7 @@ mega_usage_join as (
     left join daily_query_stats dqs on date_trunc('day', qh.start_time) = dqs.query_date
 ),
 
--- Final aggregation with excessive calculations
+
 final as (
     select
         user_name,

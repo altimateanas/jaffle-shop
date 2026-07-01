@@ -4,41 +4,7 @@
     )
 }}
 
-/*
-    ⚠️ EXTREMELY INEFFICIENT MODEL - FOR OPTIMIZATION DEMONSTRATION ONLY ⚠️
-    
-    This model showcases 20+ anti-patterns that will result in:
-    - High query costs
-    - Slow execution times
-    - Excessive resource consumption
-    - Memory spillage
-    
-    ANTI-PATTERNS INCLUDED:
-    1.  SELECT * everywhere
-    2.  Multiple CROSS JOINs
-    3.  Nested DISTINCT operations
-    4.  Correlated subqueries (N+1 pattern)
-    5.  Same table scanned 5+ times
-    6.  Non-sargable WHERE clauses
-    7.  Excessive window functions
-    8.  Heavy string manipulations
-    9.  UNION ALL instead of single query
-    10. ORDER BY in subqueries
-    11. Unused CTEs (dead code)
-    12. Deep query nesting
-    13. Cartesian products
-    14. Redundant aggregations
-    15. Multiple hash operations
-    16. Regular expressions
-    17. Type conversions
-    18. Date calculations in filters
-    19. Self-joins
-    20. Final ORDER BY on table
-*/
 
--- ============================================================================
--- LAYER 1: Base CTEs with SELECT * anti-pattern
--- ============================================================================
 
 with all_customers as (
     select * from {{ ref('stg_customers') }}
@@ -52,9 +18,7 @@ all_payments as (
     select * from {{ ref('stg_payments') }}
 ),
 
--- ============================================================================
--- LAYER 2: Redundant table scans (same source read multiple times)
--- ============================================================================
+
 
 customers_scan_2 as (
     select * from {{ ref('stg_customers') }}
@@ -76,9 +40,7 @@ payments_scan_2 as (
     select * from {{ ref('stg_payments') }}
 ),
 
--- ============================================================================
--- LAYER 3: Unnecessary ORDER BY in CTEs (sorting that gets discarded)
--- ============================================================================
+
 
 sorted_customers as (
     select 
@@ -109,11 +71,7 @@ sorted_payments as (
     order by amount desc, payment_id asc, order_id desc
 ),
 
--- ============================================================================
--- LAYER 4: CROSS JOINs creating massive intermediate results
--- ============================================================================
 
--- Cross join customers with orders (every customer x every order)
 customer_order_cross as (
     select 
         c.customer_id as cust_id,
@@ -139,7 +97,7 @@ customer_payment_cross as (
     cross join sorted_payments p
 ),
 
--- Triple cross join (customers x orders x payments) - MASSIVE
+
 triple_cross as (
     select 
         c.customer_id as cust_id,
@@ -155,9 +113,7 @@ triple_cross as (
     cross join all_payments p
 ),
 
--- ============================================================================
--- LAYER 5: DISTINCT on massive cross-joined datasets
--- ============================================================================
+
 
 distinct_customer_orders as (
     select distinct
@@ -186,9 +142,7 @@ distinct_triple as (
     from triple_cross
 ),
 
--- ============================================================================
--- LAYER 6: Non-sargable WHERE clauses (functions on columns)
--- ============================================================================
+
 
 filtered_by_functions as (
     select 
@@ -207,9 +161,7 @@ filtered_by_functions as (
        or regexp_like(status, '.*[a-z].*')
 ),
 
--- ============================================================================
--- LAYER 7: Correlated subqueries (N+1 query pattern)
--- ============================================================================
+
 
 customer_with_correlated_stats as (
     select 
@@ -264,9 +216,7 @@ customer_with_correlated_stats as (
     from all_customers c
 ),
 
--- ============================================================================
--- LAYER 8: Heavy string manipulations
--- ============================================================================
+
 
 string_heavy_customers as (
     select
@@ -306,9 +256,7 @@ string_heavy_customers as (
     from all_customers
 ),
 
--- ============================================================================
--- LAYER 9: Excessive window functions (multiple sorts)
--- ============================================================================
+
 
 window_heavy_customers as (
     select
@@ -342,9 +290,7 @@ window_heavy_customers as (
     from all_customers
 ),
 
--- ============================================================================
--- LAYER 10: UNION ALL instead of single aggregation (multiple passes)
--- ============================================================================
+
 
 payment_method_counts as (
     select 'credit_card' as method, count(*) as cnt, sum(amount) as total 
@@ -377,9 +323,7 @@ order_status_counts as (
     from all_orders where status = 'returned'
 ),
 
--- ============================================================================
--- LAYER 11: Self-joins (joining table to itself)
--- ============================================================================
+
 
 customer_self_join as (
     select
@@ -403,9 +347,7 @@ order_self_join as (
     inner join all_orders o2 on o1.order_id < o2.order_id
 ),
 
--- ============================================================================
--- LAYER 12: Unused CTEs (dead code that still gets compiled)
--- ============================================================================
+
 
 unused_cte_1 as (
     select count(*) as c from all_customers
@@ -419,9 +361,7 @@ unused_cte_3 as (
     select max(order_date) as m from all_orders
 ),
 
--- ============================================================================
--- LAYER 13: Redundant aggregations (same calculation multiple ways)
--- ============================================================================
+
 
 redundant_order_stats as (
     select
@@ -447,9 +387,7 @@ redundant_payment_stats as (
     group by order_id
 ),
 
--- ============================================================================
--- LAYER 14: Massive final join combining everything
--- ============================================================================
+
 
 mega_join as (
     select
@@ -495,9 +433,7 @@ mega_join as (
     left join redundant_payment_stats rps on o.order_id = rps.order_id
 ),
 
--- ============================================================================
--- LAYER 15: Final aggregation with excessive calculations
--- ============================================================================
+
 
 final as (
     select
