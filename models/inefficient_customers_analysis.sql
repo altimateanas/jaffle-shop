@@ -78,7 +78,8 @@ customer_order_cross as (
         c.first_name,
         c.last_name,
         o.order_id,
-        o.order_date,
+    ---changing this
+        o.order_dat,
         o.status
     from sorted_customers c
     cross join sorted_orders o
