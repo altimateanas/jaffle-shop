@@ -34,6 +34,5 @@ models:
       staging:
         materialized: view
 
-query-comment:
-  comment: '{{altimate_snowflake_query_tags.get_query_comment(node)}}'
-  append: true
+vars:
+  altimate_query_tag_fields: 'all' 
